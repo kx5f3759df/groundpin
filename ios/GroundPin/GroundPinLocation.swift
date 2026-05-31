@@ -67,11 +67,14 @@ class GroundPinLocation: RCTEventEmitter, CLLocationManagerDelegate {
 
   private func locationToDict(_ loc: CLLocation) -> [String: Any] {
     let sourceInfo = loc.sourceInformation
+    let timestampMs = loc.timestamp.timeIntervalSince1970 * 1000
+    let fixId = "fix_\(Int(timestampMs))_\(Int.random(in: 0..<10000))"
     var dict: [String: Any] = [
+      "id": fixId,
       "latitude": loc.coordinate.latitude,
       "longitude": loc.coordinate.longitude,
       "horizontalAccuracyMeters": loc.horizontalAccuracy,
-      "locationTimestampUnixMs": loc.timestamp.timeIntervalSince1970 * 1000,
+      "locationTimestampUnixMs": timestampMs,
       "monotonicTimestampMs": ProcessInfo.processInfo.systemUptime * 1000,
       "source": [
         "platform": "ios",
@@ -81,6 +84,9 @@ class GroundPinLocation: RCTEventEmitter, CLLocationManagerDelegate {
       ],
       "accuracyAuthorization": accuracyAuthorizationString(),
       "ageMsAtReceive": 0,
+      "isValid": false,
+      "invalidReasons": [] as [String],
+      "riskFlags": [] as [String],
     ]
     return dict
   }

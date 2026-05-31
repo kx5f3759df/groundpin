@@ -20,11 +20,8 @@
     "@react-navigation/native-stack": "^7.3.10",
     "react": "19.0.0",
     "react-native": "0.79.2",
-    "react-native-document-picker": "^9.3.1",
-    "react-native-fs": "^2.20.0",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "^4.10.0",
-    "react-native-share": "^11.0.4",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

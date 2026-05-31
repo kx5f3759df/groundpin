@@ -35,7 +35,6 @@ import type {
   EvidenceClock,
   EvidenceTime,
   AttachmentRecord,
-  AnchorJson,
 } from '../types';
 import {
   LOCATION_REFRESH_INTERVAL_MS,
@@ -55,8 +54,13 @@ import * as NativeDeviceKey from '../native/NativeDeviceKey';
 import * as NativeMedia from '../native/NativeMedia';
 import * as NativePackage from '../native/NativePackage';
 
+type RootStackParamList = {
+  Main: undefined;
+  Attachments: undefined;
+};
+
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Main'>;
 };
 
 export default function MainScreen({ navigation }: Props) {
@@ -496,6 +500,7 @@ export default function MainScreen({ navigation }: Props) {
   const handleAddText = useCallback(async () => {
     try {
       const { anchorFix, clock, evidenceTime } = await getCurrentAnchorInfo();
+      const attachmentId = generateId();
       const sid = shortId();
       const filename = FileNames.buildAttachmentFileName('text', evidenceTime.evidenceTimeUnixMs, sid);
       const anchorFilename = FileNames.buildAnchorFileName('text', evidenceTime.evidenceTimeUnixMs, sid);
@@ -506,56 +511,31 @@ export default function MainScreen({ navigation }: Props) {
         utf8Content: textInputValue,
       });
 
-      // Build and write anchor JSON
-      const anchorJson: AnchorJson = {
-        schemaVersion: 1,
-        attachmentId: generateId(),
-        attachmentFile: FileNames.buildZipPath(filename),
-        anchorFile: FileNames.buildZipPath(anchorFilename),
-        evidenceTimeUnixMs: evidenceTime.evidenceTimeUnixMs,
-        sourceLocationFixId: anchorFix.id,
-        anchorLocation: {
-          latitude: anchorFix.latitude,
-          longitude: anchorFix.longitude,
-          horizontalAccuracyMeters: anchorFix.horizontalAccuracyMeters,
-          locationTimestampUnixMs: anchorFix.locationTimestampUnixMs,
-          locationSource: anchorFix.source,
-          accuracyAuthorization: anchorFix.accuracyAuthorization,
-        },
-        anchorValidation: {
-          isValidAtAnchorTime: anchorFix.isValid,
-          invalidReasons: anchorFix.invalidReasons,
-          riskFlags: anchorFix.riskFlags,
-        },
-        timeDerivation: {
-          anchorLocationTimestampUnixMs: clock.anchorLocationTimestampUnixMs,
-          anchorMonotonicMs: clock.anchorMonotonicMs,
-          attachmentMonotonicMs: clock.anchorMonotonicMs + evidenceTime.deltaFromAnchorMs,
-          deltaFromAnchorMs: evidenceTime.deltaFromAnchorMs,
-          derivedEvidenceTimeUnixMs: evidenceTime.evidenceTimeUnixMs,
-        },
-      };
-
-      const anchorResult = await NativePackage.writeUtf8File({
-        filename: anchorFilename,
-        utf8Content: serializeAnchorJson(anchorJson),
-      });
-
       const record: AttachmentRecord = {
-        id: generateId(),
+        id: attachmentId,
         type: 'text',
         filename,
         anchorFilename,
         pathInZip: FileNames.buildZipPath(filename),
         anchorPathInZip: FileNames.buildZipPath(anchorFilename),
         uri: textResult.uri,
-        anchorJsonUri: anchorResult.uri,
+        anchorJsonUri: '',
         mimeType: FileNames.getMimeType('text'),
         sizeBytes: textResult.sizeBytes,
-        anchorJsonSizeBytes: anchorResult.sizeBytes,
+        anchorJsonSizeBytes: 0,
         evidenceTimeUnixMs: evidenceTime.evidenceTimeUnixMs,
         sourceLocationFixId: anchorFix.id,
       };
+
+      const anchorJson = buildAnchorJson(record, anchorFix, clock, evidenceTime);
+
+      const anchorResult = await NativePackage.writeUtf8File({
+        filename: anchorFilename,
+        utf8Content: serializeAnchorJson(anchorJson),
+      });
+
+      record.anchorJsonUri = anchorResult.uri;
+      record.anchorJsonSizeBytes = anchorResult.sizeBytes;
 
       await AttachmentStore.addAttachment(record);
       const count = await AttachmentStore.getAttachmentCount();

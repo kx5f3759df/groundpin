@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { AttachmentRecord } from '../types';

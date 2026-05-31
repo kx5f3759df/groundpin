@@ -57,7 +57,18 @@ export async function stopLocationUpdates(): Promise<void> {
  * to ensure consistency with our validation rules.
  */
 export async function getCurrentLocationSnapshot(): Promise<LocationFix | null> {
-  return ensureModule().getCurrentLocationSnapshot();
+  const fix = await ensureModule().getCurrentLocationSnapshot();
+  if (!fix) {
+    return null;
+  }
+
+  return {
+    ...fix,
+    id: fix.id ?? `fix_${fix.locationTimestampUnixMs}`,
+    isValid: fix.isValid ?? false,
+    invalidReasons: fix.invalidReasons ?? [],
+    riskFlags: fix.riskFlags ?? [],
+  };
 }
 
 /**
