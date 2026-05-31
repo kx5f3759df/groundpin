@@ -36,7 +36,12 @@ class GroundPinMediaModule(reactContext: ReactApplicationContext) :
             val filename = "audio_${evidenceTimeUnixMs}_${shortId}.m4a"
             val file = File(reactApplicationContext.filesDir, filename)
 
-            mediaRecorder = MediaRecorder().apply {
+            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(reactApplicationContext)
+            } else {
+                @Suppress("DEPRECATION")
+                MediaRecorder()
+            }.apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)

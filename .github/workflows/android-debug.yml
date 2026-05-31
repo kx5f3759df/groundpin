@@ -32,6 +32,12 @@ jobs:
           distribution: zulu
           java-version: 17
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.1.12297006"
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 

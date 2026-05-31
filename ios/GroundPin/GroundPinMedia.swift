@@ -1,4 +1,5 @@
 import AVFoundation
+import ObjectiveC
 import UIKit
 
 @objc(GroundPinMedia)
@@ -137,7 +138,7 @@ class GroundPinMedia: NSObject {
       let evidenceTimeUnixMs = input["evidenceTimeUnixMs"] as? Int64 ?? 0
       let sourceLocationFixId = input["sourceLocationFixId"] as? String ?? ""
 
-      guard let rootVC = UIApplication.shared.windows.first?.rootViewController else {
+      guard let rootVC = Self.topViewController() else {
         reject("NO_VIEW", "No view controller available", nil)
         return
       }
@@ -178,7 +179,7 @@ class GroundPinMedia: NSObject {
       let evidenceTimeUnixMs = input["evidenceTimeUnixMs"] as? Int64 ?? 0
       let sourceLocationFixId = input["sourceLocationFixId"] as? String ?? ""
 
-      guard let rootVC = UIApplication.shared.windows.first?.rootViewController else {
+      guard let rootVC = Self.topViewController() else {
         reject("NO_VIEW", "No view controller available", nil)
         return
       }
@@ -204,6 +205,22 @@ class GroundPinMedia: NSObject {
 
       rootVC.present(picker, animated: true)
     }
+  }
+
+  private static func topViewController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+
+    for scene in scenes {
+      if let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+        return root
+      }
+      if let root = scene.windows.first?.rootViewController {
+        return root
+      }
+    }
+    return nil
   }
 }
 

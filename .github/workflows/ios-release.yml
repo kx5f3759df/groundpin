@@ -31,13 +31,19 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
-          bundler-cache: true
+          bundler-cache: false
+
+      - name: Install CocoaPods
+        run: |
+          gem install cocoapods -v "~> 1.16" --no-document
+          gem install xcodeproj --no-document
 
       - name: Install JS dependencies
         run: npm ci --no-audit --no-fund
 
       - name: Install Pods
-        run: cd ios && bundle exec pod install
+        working-directory: ios
+        run: pod install
 
       - name: Import Apple signing certificate
         env:

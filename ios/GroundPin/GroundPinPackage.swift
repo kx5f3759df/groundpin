@@ -1,5 +1,6 @@
 import Foundation
 import CommonCrypto
+import UIKit
 
 @objc(GroundPinPackage)
 class GroundPinPackage: NSObject {
@@ -197,7 +198,7 @@ class GroundPinPackage: NSObject {
 
       let fileURL = URL(fileURLWithPath: filePath)
 
-      guard let rootVC = UIApplication.shared.windows.first?.rootViewController else {
+      guard let rootVC = Self.topViewController() else {
         reject("SHARE_ERROR", "No view controller", nil)
         return
       }
@@ -217,5 +218,21 @@ class GroundPinPackage: NSObject {
         resolve(nil)
       }
     }
+  }
+
+  private static func topViewController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
+
+    for scene in scenes {
+      if let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+        return root
+      }
+      if let root = scene.windows.first?.rootViewController {
+        return root
+      }
+    }
+    return nil
   }
 }
