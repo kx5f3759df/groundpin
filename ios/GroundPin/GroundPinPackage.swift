@@ -113,18 +113,7 @@ class GroundPinPackage: NSObject {
   }
 
   private func writeZip(to path: String, files: [[String: Any]]) throws {
-    // Use system zip command via Process
-    // First create a temp directory with the files
-    let tempDir = NSTemporaryDirectory() + UUID().uuidString
-    try FileManager.default.createDirectory(atPath: tempDir, withIntermediateDirectories: true)
-
-    defer {
-      try? FileManager.default.removeItem(atPath: tempDir)
-    }
-
-    // Create attachments subdirectory
-    let attDir = (tempDir as NSString).appendingPathComponent("attachments")
-    try FileManager.default.createDirectory(atPath: attDir, withIntermediateDirectories: true)
+    let writer = try ZipWriter(outputPath: path)
 
     for file in files {
       guard let pathInZip = file["pathInZip"] as? String,
@@ -137,41 +126,11 @@ class GroundPinPackage: NSObject {
         srcPath = uri
       }
 
-      let destPath: String
-      if pathInZip.hasPrefix("attachments/") {
-        // Place in attachments subdirectory
-        let filename = String(pathInZip.dropFirst("attachments/".count))
-        destPath = (attDir as NSString).appendingPathComponent(filename)
-        // Ensure parent directories exist
-        let destDir = (destPath as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(atPath: destDir, withIntermediateDirectories: true)
-      } else {
-        // Place in root
-        destPath = (tempDir as NSString).appendingPathComponent(pathInZip)
-      }
-
-      if FileManager.default.fileExists(atPath: srcPath) {
-        try FileManager.default.copyItem(atPath: srcPath, toPath: destPath)
-      }
+      let normalisedPath = pathInZip.replacingOccurrences(of: "\\", with: "/")
+      try writer.addFile(pathInZip: normalisedPath, sourcePath: srcPath)
     }
 
-    // Use system zip command
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
-    process.arguments = ["-r", "-q", path, "."]
-    process.currentDirectoryURL = URL(fileURLWithPath: tempDir)
-
-    let pipe = Pipe()
-    process.standardError = pipe
-
-    try process.run()
-    process.waitUntilExit()
-
-    if process.terminationStatus != 0 {
-      let errorData = pipe.fileHandleForReading.readDataToEndOfFile()
-      let errorStr = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-      throw NSError(domain: "GroundPin", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: errorStr])
-    }
+    try writer.finish()
   }
 
   // MARK: - Share

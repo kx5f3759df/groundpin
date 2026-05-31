@@ -11,6 +11,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		26145FDECFD545998B43B26F /* GroundPinLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3EBFF9A93E249239B0F3863 /* GroundPinLocation.swift */; };
 		2F958D330796404899557681 /* GroundPinPackage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31C20DCB7184DE7A4989ACC /* GroundPinPackage.swift */; };
+		D1E2F3A4B5C64789A0123456 /* ZipWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F3A4B5C6D75890A1234567 /* ZipWriter.swift */; };
 		481D4B432C104A48A5B63B4D /* GroundPinPackage.m in Sources */ = {isa = PBXBuildFile; fileRef = 71BEDC9EDE904F329EB803F6 /* GroundPinPackage.m */; };
 		764AE66BACAA4133AC010A6C /* GroundPinMedia.m in Sources */ = {isa = PBXBuildFile; fileRef = 61791F6441C04ED4A663B173 /* GroundPinMedia.m */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
@@ -47,6 +48,7 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = GroundPin/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = GroundPin/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		A31C20DCB7184DE7A4989ACC /* GroundPinPackage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GroundPinPackage.swift; path = GroundPin/GroundPinPackage.swift; sourceTree = "<group>"; };
+		E2F3A4B5C6D75890A1234567 /* ZipWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ZipWriter.swift; path = GroundPin/ZipWriter.swift; sourceTree = "<group>"; };
 		B3EBFF9A93E249239B0F3863 /* GroundPinLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GroundPinLocation.swift; path = GroundPin/GroundPinLocation.swift; sourceTree = "<group>"; };
 		C96C2E2BB88D45589BCDA872 /* GroundPinMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GroundPinMedia.swift; path = GroundPin/GroundPinMedia.swift; sourceTree = "<group>"; };
 		DEA46FD81B0A43E89E8C326E /* GroundPinLocation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = GroundPinLocation.m; path = GroundPin/GroundPinLocation.m; sourceTree = "<group>"; };
@@ -87,6 +89,7 @@
 				61791F6441C04ED4A663B173 /* GroundPinMedia.m */,
 				A31C20DCB7184DE7A4989ACC /* GroundPinPackage.swift */,
 				71BEDC9EDE904F329EB803F6 /* GroundPinPackage.m */,
+				E2F3A4B5C6D75890A1234567 /* ZipWriter.swift */,
 				510919E0F70A47E8B74BDB8E /* GroundPin-Bridging-Header.h */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
@@ -304,6 +307,7 @@
 				FAB71E1C84B242C3B1C1602F /* GroundPinMedia.swift in Sources */,
 				764AE66BACAA4133AC010A6C /* GroundPinMedia.m in Sources */,
 				2F958D330796404899557681 /* GroundPinPackage.swift in Sources */,
+				D1E2F3A4B5C64789A0123456 /* ZipWriter.swift in Sources */,
 				481D4B432C104A48A5B63B4D /* GroundPinPackage.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
