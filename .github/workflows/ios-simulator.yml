@@ -1,0 +1,63 @@
+name: iOS Simulator Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator:
+    name: Build iOS Simulator App
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcode-select -p
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Install Pods
+        run: cd ios && bundle exec pod install
+
+      - name: Build iOS simulator
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/GroundPin.xcworkspace \
+            -scheme GroundPin \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload iOS build folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: groundpin-ios-simulator-build
+          path: build/ios/Build/Products/Debug-iphonesimulator/
+          if-no-files-found: warn

@@ -1,0 +1,31 @@
+name: GroundPin Evidence Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-tools:
+    name: Verify GroundPin Evidence Tools
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GnuPG and unzip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg unzip
+
+      - name: Run verify self-test
+        run: |
+          chmod +x tools/verify.sh
+          ./tools/verify.sh --self-test
