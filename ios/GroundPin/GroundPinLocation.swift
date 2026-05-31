@@ -1,5 +1,6 @@
 import CoreLocation
 import Foundation
+import React
 
 /// Emitted when a new location fix is available.
 /// The JS side polls via getCurrentLocationSnapshot().

@@ -1,4 +1,5 @@
 import Foundation
+import React
 import Security
 
 // MARK: - OpenPGP Minimal Utilities (RFC 4880)
