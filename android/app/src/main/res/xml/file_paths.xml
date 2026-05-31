@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- App internal files directory for attachments and package zip -->
+    <files-path name="groundpin_files" path="." />
+    <!-- App external files directory (fallback) -->
+    <external-files-path name="groundpin_external" path="." />
+    <!-- Cache directory for temporary files -->
+    <cache-path name="groundpin_cache" path="." />
+</paths>
