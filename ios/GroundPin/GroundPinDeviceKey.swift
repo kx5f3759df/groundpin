@@ -1,3 +1,4 @@
+import CommonCrypto
 import Foundation
 import React
 import Security
