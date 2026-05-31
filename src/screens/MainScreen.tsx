@@ -237,36 +237,6 @@ export default function MainScreen({ navigation }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Main Button Handler ----
-
-  const handleMainButtonPress = useCallback(async () => {
-    if (buttonState === 'red_invalid') {
-      Alert.alert('无法打卡', '等待有效 GNSS 定位');
-      return;
-    }
-
-    if (buttonState === 'yellow_attachment_only') {
-      Alert.alert('仅可添加附件', '当前只可添加附件，打卡需要当前 GNSS 有效');
-      return;
-    }
-
-    // Green: generate package
-    if (isGenerating) {
-      return;
-    }
-
-    setIsGenerating(true);
-
-    try {
-      await generatePackage();
-      setStatusText('证据包已生成');
-    } catch (err: any) {
-      Alert.alert('生成失败', err?.message || '未知错误');
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [buttonState, isGenerating]);
-
   // ---- Package Generation ----
 
   const generatePackage = useCallback(async () => {
@@ -445,6 +415,36 @@ export default function MainScreen({ navigation }: Props) {
       title: `groundpin_attendance_${packageId}.zip`,
     });
   }, []);
+
+  // ---- Main Button Handler ----
+
+  const handleMainButtonPress = useCallback(async () => {
+    if (buttonState === 'red_invalid') {
+      Alert.alert('无法打卡', '等待有效 GNSS 定位');
+      return;
+    }
+
+    if (buttonState === 'yellow_attachment_only') {
+      Alert.alert('仅可添加附件', '当前只可添加附件，打卡需要当前 GNSS 有效');
+      return;
+    }
+
+    // Green: generate package
+    if (isGenerating) {
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      await generatePackage();
+      setStatusText('证据包已生成');
+    } catch (err: any) {
+      Alert.alert('生成失败', err?.message || '未知错误');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [buttonState, generatePackage, isGenerating]);
 
   // ---- Media Handlers ----
 
