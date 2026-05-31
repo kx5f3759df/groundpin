@@ -125,6 +125,7 @@ class GroundPinPackageModule(reactContext: ReactApplicationContext) :
                 ZipOutputStream(fos).use { zos ->
                     for (i in 0 until files.size()) {
                         val entry: ReadableMap = files.getMap(i)
+                            ?: throw IllegalArgumentException("Missing file entry at index $i")
                         val pathInZip = entry.getString("pathInZip")
                             ?: throw IllegalArgumentException("Missing 'pathInZip' in entry $i")
                         val srcUri = entry.getString("uri")

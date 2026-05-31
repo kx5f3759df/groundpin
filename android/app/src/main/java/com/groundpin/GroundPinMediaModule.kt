@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.media.MediaRecorder
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.facebook.react.bridge.*
@@ -46,7 +47,7 @@ class GroundPinMediaModule(reactContext: ReactApplicationContext) :
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
                 setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
                 setAudioSamplingRate(44100)
-                setAudioBitRate(128000)
+                setAudioEncodingBitRate(128000)
                 setAudioChannels(1)
                 setOutputFile(file.absolutePath)
                 prepare()
