@@ -1,6 +1,10 @@
 module.exports = {
   project: {
     ios: {},
-    android: {},
+    android: {
+      sourceDir: './android',
+      appName: 'GroundPin',
+      packageName: 'com.groundpin',
+    },
   },
 };
