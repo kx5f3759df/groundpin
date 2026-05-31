@@ -25,7 +25,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -34,7 +33,7 @@ jobs:
           bundler-cache: true
 
       - name: Install JS dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Install Pods
         run: cd ios && bundle exec pod install
