@@ -50,6 +50,13 @@ jobs:
       - name: Build debug APK
         run: cd android && ./gradlew assembleDebug --stacktrace
 
+      - name: Verify JS bundle packaged in APK
+        run: |
+          set -euo pipefail
+          apk=$(ls android/app/build/outputs/apk/debug/*.apk | head -1)
+          unzip -l "$apk" | grep -E 'assets/(index\.android\.bundle|index\.bundle)'
+          echo "OK: JS bundle found in $apk"
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
