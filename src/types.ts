@@ -207,10 +207,12 @@ export interface NativeDeviceKeyModule {
 }
 
 export interface NativeMediaModule {
-  recordAudioM4a(input: {
+  startRecordAudioM4a(input: {
     evidenceTimeUnixMs: number;
     sourceLocationFixId: string;
-  }): Promise<AttachmentRecord>;
+  }): Promise<void>;
+
+  stopRecordAudioM4a(): Promise<AttachmentRecord>;
 
   capturePhotoJpg(input: {
     evidenceTimeUnixMs: number;

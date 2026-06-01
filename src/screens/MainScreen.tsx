@@ -63,6 +63,8 @@ type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Main'>;
 };
 
+const MAX_RECORDING_MS = 60_000;
+
 export default function MainScreen({ navigation }: Props) {
   // ---- State ----
   const [buttonState, setButtonState] = useState<ButtonState>('red_invalid');
@@ -71,6 +73,8 @@ export default function MainScreen({ navigation }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [textModalVisible, setTextModalVisible] = useState(false);
   const [textInputValue, setTextInputValue] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
 
   // Non-rendering mutable refs
   const anchorClockRef = useRef<EvidenceClock | null>(null);
@@ -78,6 +82,14 @@ export default function MainScreen({ navigation }: Props) {
   const lifecycleRef = useRef<ReturnType<typeof createLocationLifecycle> | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentFixRef = useRef<LocationFix | null>(null);
+  const audioAnchorRef = useRef<{
+    anchorFix: LocationFix;
+    clock: EvidenceClock;
+    evidenceTime: EvidenceTime;
+  } | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingMaxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRecordingRef = useRef(false);
 
   // ---- Button State Calculation ----
 
@@ -232,6 +244,7 @@ export default function MainScreen({ navigation }: Props) {
 
     return () => {
       unsubscribe();
+      clearRecordingTimers();
       lifecycle.destroy();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -547,20 +560,93 @@ export default function MainScreen({ navigation }: Props) {
     }
   }, [getCurrentAnchorInfo, textInputValue]);
 
-  const handleRecordAudio = useCallback(async () => {
+  const clearRecordingTimers = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (recordingMaxTimerRef.current) {
+      clearTimeout(recordingMaxTimerRef.current);
+      recordingMaxTimerRef.current = null;
+    }
+  }, []);
+
+  const finishRecording = useCallback(async () => {
+    if (!isRecordingRef.current) {
+      return;
+    }
+
+    clearRecordingTimers();
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    setRecordingSeconds(0);
+
+    const anchorInfo = audioAnchorRef.current;
+    audioAnchorRef.current = null;
+
     try {
-      const { evidenceTime } = await getCurrentAnchorInfo();
-      const record = await NativeMedia.recordAudioM4a({
-        evidenceTimeUnixMs: evidenceTime.evidenceTimeUnixMs,
-        sourceLocationFixId: evidenceTime.anchorLocationFixId,
-      });
+      const record = await NativeMedia.stopRecordAudioM4a();
+
+      if (anchorInfo) {
+        const anchorJson = buildAnchorJson(
+          record,
+          anchorInfo.anchorFix,
+          anchorInfo.clock,
+          anchorInfo.evidenceTime,
+        );
+        const anchorResult = await NativePackage.writeUtf8File({
+          filename: record.anchorFilename,
+          utf8Content: serializeAnchorJson(anchorJson),
+        });
+        record.anchorJsonUri = anchorResult.uri;
+        record.anchorJsonSizeBytes = anchorResult.sizeBytes;
+      }
+
       await AttachmentStore.addAttachment(record);
       const count = await AttachmentStore.getAttachmentCount();
       setAttachmentCount(count);
+      setStatusText('录音已保存');
     } catch (err: any) {
       Alert.alert('录音失败', err?.message || '未知错误');
     }
-  }, [getCurrentAnchorInfo]);
+  }, [clearRecordingTimers]);
+
+  const handleRecordAudio = useCallback(async () => {
+    if (isRecordingRef.current) {
+      await finishRecording();
+      return;
+    }
+
+    try {
+      const anchorInfo = await getCurrentAnchorInfo();
+      audioAnchorRef.current = anchorInfo;
+
+      await NativeMedia.startRecordAudioM4a({
+        evidenceTimeUnixMs: anchorInfo.evidenceTime.evidenceTimeUnixMs,
+        sourceLocationFixId: anchorInfo.evidenceTime.anchorLocationFixId,
+      });
+
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      setStatusText('录音中… 再次点击「停止」结束');
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
+
+      recordingMaxTimerRef.current = setTimeout(() => {
+        finishRecording();
+      }, MAX_RECORDING_MS);
+    } catch (err: any) {
+      audioAnchorRef.current = null;
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      setRecordingSeconds(0);
+      clearRecordingTimers();
+      Alert.alert('录音失败', err?.message || '未知错误');
+    }
+  }, [getCurrentAnchorInfo, finishRecording, clearRecordingTimers]);
 
   const handleCapturePhoto = useCallback(async () => {
     try {
@@ -609,7 +695,14 @@ export default function MainScreen({ navigation }: Props) {
       : '无法打卡';
 
   const attachmentsEnabled =
-    buttonState === 'green_check_in' || buttonState === 'yellow_attachment_only';
+    (buttonState === 'green_check_in' || buttonState === 'yellow_attachment_only') &&
+    !isRecording;
+
+  const formatRecordingTime = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   // ---- Render ----
 
@@ -640,6 +733,15 @@ export default function MainScreen({ navigation }: Props) {
       {/* Status text */}
       <Text style={styles.statusText}>{statusText}</Text>
 
+      {isRecording && (
+        <View style={styles.recordingBanner}>
+          <View style={styles.recordingDot} />
+          <Text style={styles.recordingBannerText}>
+            录音中 {formatRecordingTime(recordingSeconds)} / 1:00
+          </Text>
+        </View>
+      )}
+
       {/* Bottom media buttons */}
       <View style={styles.mediaBar}>
         <TouchableOpacity
@@ -663,18 +765,20 @@ export default function MainScreen({ navigation }: Props) {
         <TouchableOpacity
           style={[
             styles.mediaButton,
-            !attachmentsEnabled && styles.mediaButtonDisabled,
+            isRecording && styles.mediaButtonRecording,
+            !attachmentsEnabled && !isRecording && styles.mediaButtonDisabled,
           ]}
           onPress={handleRecordAudio}
-          disabled={!attachmentsEnabled}
+          disabled={!attachmentsEnabled && !isRecording}
         >
           <Text
             style={[
               styles.mediaButtonText,
-              !attachmentsEnabled && styles.mediaButtonTextDisabled,
+              isRecording && styles.mediaButtonTextRecording,
+              !attachmentsEnabled && !isRecording && styles.mediaButtonTextDisabled,
             ]}
           >
-            录音
+            {isRecording ? '停止' : '录音'}
           </Text>
         </TouchableOpacity>
 
@@ -809,6 +913,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
+  recordingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(231, 76, 60, 0.2)',
+    borderRadius: 20,
+  },
+  recordingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#e74c3c',
+    marginRight: 8,
+  },
+  recordingBannerText: {
+    color: '#ff6b6b',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   mediaBar: {
     flexDirection: 'row',
     position: 'absolute',
@@ -829,6 +954,9 @@ const styles = StyleSheet.create({
   mediaButtonDisabled: {
     opacity: 0.3,
   },
+  mediaButtonRecording: {
+    backgroundColor: 'rgba(231, 76, 60, 0.35)',
+  },
   mediaButtonText: {
     color: '#ffffff',
     fontSize: 14,
@@ -836,6 +964,9 @@ const styles = StyleSheet.create({
   },
   mediaButtonTextDisabled: {
     color: '#666666',
+  },
+  mediaButtonTextRecording: {
+    color: '#ff6b6b',
   },
   modalOverlay: {
     flex: 1,

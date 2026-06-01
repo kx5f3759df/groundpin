@@ -7,7 +7,11 @@ import UIKit
 class GroundPinMedia: NSObject {
 
   private var audioRecorder: AVAudioRecorder?
-  private var audioCompletion: ((String?, Error?) -> Void)?
+  private var recordingFileURL: URL?
+  private var recordingFilename: String?
+  private var recordingAnchorFilename: String?
+  private var recordingEvidenceTimeMs: Int64 = 0
+  private var recordingSourceFixId: String = ""
 
   @objc static func requiresMainQueueSetup() -> Bool {
     return true
@@ -15,36 +19,48 @@ class GroundPinMedia: NSObject {
 
   // MARK: - Audio Recording
 
-  @objc(recordAudioM4a:resolver:rejecter:)
-  func recordAudioM4a(
+  @objc(startRecordAudioM4a:resolver:rejecter:)
+  func startRecordAudioM4a(
     _ input: [String: Any],
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
     DispatchQueue.main.async {
-      self.startAudioRecording(input: input, resolve: resolve, reject: reject)
+      do {
+        try self.beginAudioRecording(input: input)
+        resolve(nil)
+      } catch {
+        reject("RECORD_ERROR", error.localizedDescription, error)
+      }
     }
   }
 
-  private func startAudioRecording(
-    input: [String: Any],
-    resolve: @escaping RCTPromiseResolveBlock,
+  @objc(stopRecordAudioM4a:rejecter:)
+  func stopRecordAudioM4a(
+    _ resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
-    let evidenceTimeUnixMs = input["evidenceTimeUnixMs"] as? Int64 ?? 0
-    let sourceLocationFixId = input["sourceLocationFixId"] as? String ?? ""
+    DispatchQueue.main.async {
+      guard self.audioRecorder != nil else {
+        reject("NOT_RECORDING", "No active recording", nil)
+        return
+      }
+      self.stopRecordingAndFinalize(resolve: resolve, reject: reject)
+    }
+  }
 
-    // Prepare audio session
-    let session = AVAudioSession.sharedInstance()
-    do {
-      try session.setCategory(.playAndRecord, mode: .default)
-      try session.setActive(true)
-    } catch {
-      reject("AUDIO_SESSION_ERROR", error.localizedDescription, error)
-      return
+  private func beginAudioRecording(input: [String: Any]) throws {
+    if audioRecorder != nil {
+      throw NSError(domain: "GroundPin", code: 1, userInfo: [NSLocalizedDescriptionKey: "Already recording"])
     }
 
-    // Generate file name
+    let evidenceTimeUnixMs = input["evidenceTimeUnixMs"] as? Int64 ?? Int64(input["evidenceTimeUnixMs"] as? Double ?? 0)
+    let sourceLocationFixId = input["sourceLocationFixId"] as? String ?? ""
+
+    let session = AVAudioSession.sharedInstance()
+    try session.setCategory(.playAndRecord, mode: .default)
+    try session.setActive(true)
+
     let shortId = String(UUID().uuidString.prefix(4))
     let filename = "audio_\(evidenceTimeUnixMs)_\(shortId).m4a"
     let anchorFilename = "audio_\(evidenceTimeUnixMs)_\(shortId).json"
@@ -61,65 +77,85 @@ class GroundPinMedia: NSObject {
       AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
     ]
 
-    do {
-      audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
-      audioRecorder?.record()
-
-      // After a delay (max 60s or until stopped), finalize
-      DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
-        self.stopRecordingAndFinalize(
-          fileURL: fileURL,
-          filename: filename,
-          anchorFilename: anchorFilename,
-          evidenceTimeUnixMs: evidenceTimeUnixMs,
-          sourceLocationFixId: sourceLocationFixId,
-          resolve: resolve,
-          reject: reject
-        )
-      }
-    } catch {
-      reject("RECORD_ERROR", error.localizedDescription, error)
+    audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
+    guard audioRecorder?.record() == true else {
+      audioRecorder = nil
+      throw NSError(domain: "GroundPin", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to start recording"])
     }
+
+    recordingFileURL = fileURL
+    recordingFilename = filename
+    recordingAnchorFilename = anchorFilename
+    recordingEvidenceTimeMs = evidenceTimeUnixMs
+    recordingSourceFixId = sourceLocationFixId
   }
 
   private func stopRecordingAndFinalize(
-    fileURL: URL,
-    filename: String,
-    anchorFilename: String,
-    evidenceTimeUnixMs: Int64,
-    sourceLocationFixId: String,
     resolve: @escaping RCTPromiseResolveBlock,
     reject: @escaping RCTPromiseRejectBlock
   ) {
     audioRecorder?.stop()
+    audioRecorder = nil
+
+    guard let fileURL = recordingFileURL,
+          let filename = recordingFilename,
+          let anchorFilename = recordingAnchorFilename else {
+      reject("FILE_ERROR", "Recording metadata missing", nil)
+      return
+    }
 
     let fileManager = FileManager.default
     guard let attrs = try? fileManager.attributesOfItem(atPath: fileURL.path),
-          let fileSize = attrs[.size] as? Int64 else {
+          let fileSize = attrs[.size] as? Int64,
+          fileSize > 0 else {
       reject("FILE_ERROR", "Could not read audio file", nil)
       return
     }
 
-    let attachmentId = UUID().uuidString
-    let pathInZip = "attachments/\(filename)"
-    let anchorPathInZip = "attachments/\(anchorFilename)"
-
     let result: [String: Any] = [
-      "id": attachmentId,
+      "id": UUID().uuidString,
       "type": "audio",
       "filename": filename,
       "anchorFilename": anchorFilename,
-      "pathInZip": pathInZip,
-      "anchorPathInZip": anchorPathInZip,
+      "pathInZip": "attachments/\(filename)",
+      "anchorPathInZip": "attachments/\(anchorFilename)",
       "uri": fileURL.absoluteString,
       "anchorJsonUri": "",
       "mimeType": "audio/mp4",
       "sizeBytes": NSNumber(value: fileSize),
       "anchorJsonSizeBytes": 0,
-      "evidenceTimeUnixMs": NSNumber(value: evidenceTimeUnixMs),
-      "sourceLocationFixId": sourceLocationFixId,
+      "evidenceTimeUnixMs": NSNumber(value: recordingEvidenceTimeMs),
+      "sourceLocationFixId": recordingSourceFixId,
     ]
+
+    recordingFileURL = nil
+    recordingFilename = nil
+    recordingAnchorFilename = nil
+    recordingEvidenceTimeMs = 0
+    recordingSourceFixId = ""
+
     resolve(result)
+  }
+
+  // Legacy — not used by JS
+  @objc(recordAudioM4a:resolver:rejecter:)
+  func recordAudioM4a(
+    _ input: [String: Any],
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async {
+      do {
+        try self.beginAudioRecording(input: input)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+          if self.audioRecorder != nil {
+            self.stopRecordingAndFinalize(resolve: resolve, reject: reject)
+          }
+        }
+      } catch {
+        reject("RECORD_ERROR", error.localizedDescription, error)
+      }
+    }
   }
 
   // MARK: - Photo Capture

@@ -37,13 +37,34 @@ class GroundPinMediaModule(reactContext: ReactApplicationContext) :
     override fun getName(): String = "GroundPinMedia"
 
     @ReactMethod
-    fun recordAudioM4a(input: ReadableMap, promise: Promise) {
+    fun startRecordAudioM4a(input: ReadableMap, promise: Promise) {
         runWithPermissions(
             promise,
             arrayOf(Manifest.permission.RECORD_AUDIO),
             PERMISSION_REQUEST_AUDIO
         ) {
-            startAudioRecording(input, promise)
+            try {
+                startAudioRecording(input)
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("RECORD_ERROR", e.message ?: "Failed to start recording", e)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun stopRecordAudioM4a(promise: Promise) {
+        reactApplicationContext.runOnUiQueueThread {
+            if (mediaRecorder == null) {
+                promise.reject("NOT_RECORDING", "No active recording", null)
+                return@runOnUiQueueThread
+            }
+            try {
+                val result = finishAudioRecording()
+                promise.resolve(result)
+            } catch (e: Exception) {
+                promise.reject("RECORD_ERROR", e.message, e)
+            }
         }
     }
 
@@ -118,46 +139,89 @@ class GroundPinMediaModule(reactContext: ReactApplicationContext) :
         return true
     }
 
-    private fun startAudioRecording(input: ReadableMap, promise: Promise) {
-        try {
-            val evidenceTimeUnixMs = input.getDouble("evidenceTimeUnixMs").toLong()
-            val sourceLocationFixId = input.getString("sourceLocationFixId") ?: ""
-            val shortId = UUID.randomUUID().toString().replace("-", "").take(4)
-            val filename = "audio_${evidenceTimeUnixMs}_${shortId}.m4a"
-            val file = File(reactApplicationContext.filesDir, filename)
+    private fun startAudioRecording(input: ReadableMap) {
+        if (mediaRecorder != null) {
+            throw IllegalStateException("Already recording")
+        }
 
-            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(reactApplicationContext)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setAudioSamplingRate(44100)
-                setAudioEncodingBitRate(128000)
-                setAudioChannels(1)
-                setOutputFile(file.absolutePath)
-                prepare()
-                start()
-            }
+        val evidenceTimeUnixMs = input.getDouble("evidenceTimeUnixMs").toLong()
+        val sourceLocationFixId = input.getString("sourceLocationFixId") ?: ""
+        val shortId = UUID.randomUUID().toString().replace("-", "").take(4)
+        val filename = "audio_${evidenceTimeUnixMs}_${shortId}.m4a"
+        val file = File(reactApplicationContext.filesDir, filename)
 
-            audioFile = file
-            pendingPromise = promise
-            pendingEvidenceTimeMs = evidenceTimeUnixMs
-            pendingSourceFixId = sourceLocationFixId
-            pendingFilename = filename
-            pendingType = "audio"
-
-            android.os.Handler(reactApplicationContext.mainLooper).postDelayed({
-                if (mediaRecorder != null) {
-                    finishAudioRecording()
+        val sources = intArrayOf(
+            MediaRecorder.AudioSource.MIC,
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
+        )
+        var lastError: Exception? = null
+        for (source in sources) {
+            try {
+                mediaRecorder = createMediaRecorder().apply {
+                    setAudioSource(source)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                    setAudioSamplingRate(44100)
+                    setAudioEncodingBitRate(128000)
+                    setAudioChannels(1)
+                    setOutputFile(file.absolutePath)
+                    prepare()
+                    start()
                 }
-            }, 60_000)
-        } catch (e: Exception) {
-            releaseMediaRecorder()
-            promise.reject("RECORD_ERROR", e.message ?: "setAudioSourceFailed", e)
+                lastError = null
+                break
+            } catch (e: Exception) {
+                lastError = e
+                releaseMediaRecorder()
+            }
+        }
+        if (mediaRecorder == null) {
+            throw lastError ?: Exception("setAudioSourceFailed")
+        }
+
+        audioFile = file
+        pendingEvidenceTimeMs = evidenceTimeUnixMs
+        pendingSourceFixId = sourceLocationFixId
+        pendingFilename = filename
+        pendingType = "audio"
+    }
+
+    private fun createMediaRecorder(): MediaRecorder {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(reactApplicationContext)
+        } else {
+            @Suppress("DEPRECATION")
+            MediaRecorder()
+        }
+    }
+
+    private fun finishAudioRecording(): WritableMap {
+        try {
+            mediaRecorder?.apply {
+                stop()
+                release()
+            }
+        } finally {
+            mediaRecorder = null
+        }
+
+        val file = audioFile ?: throw Exception("No audio file")
+        if (!file.exists() || file.length() == 0L) {
+            throw Exception("Recording file is empty")
+        }
+
+        val anchorFilename = pendingFilename!!.replace(".m4a", ".json")
+        return buildAttachmentResult(
+            pendingType ?: "audio",
+            pendingFilename!!,
+            anchorFilename,
+            file,
+            pendingEvidenceTimeMs,
+            pendingSourceFixId
+        ).also {
+            audioFile = null
+            pendingType = null
+            pendingFilename = null
         }
     }
 
@@ -232,35 +296,6 @@ class GroundPinMediaModule(reactContext: ReactApplicationContext) :
                 uri,
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
-        }
-    }
-
-    private fun finishAudioRecording() {
-        try {
-            mediaRecorder?.apply {
-                stop()
-                release()
-            }
-            mediaRecorder = null
-
-            val file = audioFile ?: throw Exception("No audio file")
-            val anchorFilename = pendingFilename!!.replace(".m4a", ".json")
-            val result = buildAttachmentResult(
-                pendingType!!,
-                pendingFilename!!,
-                anchorFilename,
-                file,
-                pendingEvidenceTimeMs,
-                pendingSourceFixId
-            )
-            pendingPromise?.resolve(result)
-        } catch (e: Exception) {
-            pendingPromise?.reject("RECORD_ERROR", e.message, e)
-        } finally {
-            pendingPromise = null
-            audioFile = null
-            pendingType = null
-            pendingFilename = null
         }
     }
 

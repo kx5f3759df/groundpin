@@ -2,8 +2,11 @@
 
 @interface RCT_EXTERN_MODULE(GroundPinMedia, NSObject)
 
-RCT_EXTERN_METHOD(recordAudioM4a:(NSDictionary *)input
+RCT_EXTERN_METHOD(startRecordAudioM4a:(NSDictionary *)input
                   resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(stopRecordAudioM4a:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(capturePhotoJpg:(NSDictionary *)input
