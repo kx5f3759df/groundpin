@@ -193,6 +193,25 @@ class GroundPinPackageModule(reactContext: ReactApplicationContext) :
     // ---------------------------------------------------------------
 
     @ReactMethod
+    fun deletePrivateFile(uri: String, promise: Promise) {
+        try {
+            val path = stripFilePrefix(uri)
+            val file = File(path)
+            if (!file.exists()) {
+                promise.resolve(null)
+                return
+            }
+            if (!file.delete()) {
+                promise.reject("DELETE_ERROR", "Failed to delete file: $path", null)
+                return
+            }
+            promise.resolve(null)
+        } catch (e: Exception) {
+            promise.reject("DELETE_ERROR", e.message ?: "Delete failed", e)
+        }
+    }
+
+    @ReactMethod
     fun shareFile(input: ReadableMap, promise: Promise) {
         try {
             val uri = input.getString("uri")

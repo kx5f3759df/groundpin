@@ -430,6 +430,8 @@ export default function MainScreen({ navigation }: Props) {
       mimeType: 'application/zip',
       title: `groundpin_attendance_${packageId}.zip`,
     });
+
+    await AttachmentStore.removeAllAttachments();
   }, []);
 
   // ---- Main Button Handler ----
@@ -454,7 +456,8 @@ export default function MainScreen({ navigation }: Props) {
 
     try {
       await generatePackage();
-      setStatusText('证据包已生成');
+      setAttachmentCount(0);
+      setStatusText('证据包已导出，附件已清空');
     } catch (err: any) {
       Alert.alert('生成失败', err?.message || '未知错误');
     } finally {

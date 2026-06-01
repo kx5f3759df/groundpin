@@ -69,3 +69,8 @@ export async function shareFile(input: {
 }): Promise<void> {
   return ensureModule().shareFile(input);
 }
+
+/** Delete a file from app-private storage (best-effort, ignores missing files). */
+export async function deletePrivateFile(uri: string): Promise<void> {
+  return ensureModule().deletePrivateFile(uri);
+}

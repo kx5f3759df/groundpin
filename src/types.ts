@@ -247,6 +247,8 @@ export interface NativePackageModule {
     mimeType: string;
     title: string;
   }): Promise<void>;
+
+  deletePrivateFile(uri: string): Promise<void>;
 }
 
 // ---- Constants ----

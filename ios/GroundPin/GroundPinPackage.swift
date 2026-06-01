@@ -133,6 +133,37 @@ class GroundPinPackage: NSObject {
     try writer.finish()
   }
 
+  // MARK: - Delete Private File
+
+  @objc(deletePrivateFile:resolver:rejecter:)
+  func deletePrivateFile(
+    _ uri: String,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.global().async {
+      let filePath: String
+      if uri.hasPrefix("file://") {
+        filePath = String(uri.dropFirst(7))
+      } else {
+        filePath = uri
+      }
+
+      let fileManager = FileManager.default
+      if !fileManager.fileExists(atPath: filePath) {
+        resolve(nil)
+        return
+      }
+
+      do {
+        try fileManager.removeItem(atPath: filePath)
+        resolve(nil)
+      } catch {
+        reject("DELETE_ERROR", error.localizedDescription, error)
+      }
+    }
+  }
+
   // MARK: - Share
 
   @objc(shareFile:resolver:rejecter:)
