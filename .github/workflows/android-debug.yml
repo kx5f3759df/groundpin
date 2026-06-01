@@ -63,3 +63,53 @@ jobs:
           name: groundpin-android-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+  publish-android-pre-release:
+    name: Publish Android Pre-release
+    needs: android-debug
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: groundpin-android-debug-apk
+          path: apk
+
+      - name: Publish rolling pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}-pre"
+          SHORT_SHA="${GITHUB_SHA::7}"
+          SRC=$(ls apk/*.apk | head -1)
+          ASSET="groundpin-${TAG}-${SHORT_SHA}-android-debug.apk"
+          cp "$SRC" "$ASSET"
+
+          NOTES="$(cat <<EOF
+          **Automated pre-release** — Android debug APK from \`${SHORT_SHA}\` on \`main\`.
+
+          - Standalone install (JS bundle embedded; Metro not required)
+          - Debug signing (not for Play Store)
+
+          | | |
+          |---|---|
+          | Commit | [\`${SHORT_SHA}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) |
+          | Workflow run | [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) |
+          EOF
+          )"
+
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" "$ASSET" \
+            --prerelease \
+            --title "GroundPin ${VERSION} Pre-release (Android Debug)" \
+            --notes "$NOTES"
+          echo "Published ${TAG} with ${ASSET}"

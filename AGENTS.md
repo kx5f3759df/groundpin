@@ -87,6 +87,8 @@ gh run download <run-id> -n groundpin-android-debug-apk -D ./apk-out
 # → apk-out/app-debug.apk
 ```
 
+**Pre-release (main only):** successful `Android Debug Build` on `main` auto-updates GitHub pre-release tag `v<package.json version>-pre` (e.g. `v1.0.0-pre`) with the latest debug APK. Download: `https://github.com/kx5f3759df/groundpin/releases` — no local `gh run download` needed.
+
 Or open the run page → **Artifacts** at the bottom (90-day retention).
 
 **When CI logs are insufficient:** ask the user to paste the failed step log, or use `gh run view --log-failed` (requires `gh` auth with workflow read).
