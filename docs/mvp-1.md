@@ -291,15 +291,21 @@ Android：
 6. `accuracyAuthorization == precise`。
 7. 最近定位必须足够新鲜。
 8. 最近定位序列不能出现明显不可能的速度跳变。
+9. 精度分层规则（`rulesetVersion: 2`）：
+   * `horizontalAccuracyMeters < 15`：通过基础规则后立即有效。
+   * `horizontalAccuracyMeters >= 15`：通过基础规则后，还需在最近 5 次采样（含当前）中至少有一次精度值变化；否则判无效，`invalidReasons` 含 `stagnant_accuracy`。
+   * 动机：Android 混合/缓存定位可能长期报告 ~30m 且精度不变，仍满足 age/provider 等条件；真实 GNSS 精度通常会随采样略有波动。
 
 常量：
 
 ```ts
 export const LOCATION_REFRESH_INTERVAL_MS = 1_000;
 export const LOCATION_MAX_ACCURACY_METERS = 100;
+export const LOCATION_FAST_PATH_ACCURACY_METERS = 15;
 export const LOCATION_MAX_AGE_MS = 30_000;
 export const ATTACHMENT_WINDOW_MS = 10 * 60 * 1000;
 export const MAX_REASONABLE_SPEED_MPS = 80;
+export const LOCATION_HISTORY_SIZE = 5;
 ```
 
 iOS 有效性：
@@ -331,6 +337,12 @@ Android 有效性：
 1. 保存最近 5 个候选定位。
 2. 对相邻定位计算距离和时间差。
 3. 如果速度大于 80 m/s，加入 `riskFlags: ["impossible_speed"]`，并判当前定位无效。
+
+精度停滞规则（`rulesetVersion: 2`）：
+
+1. 保存最近 5 个候选定位（含当前），用于精度变化检测。
+2. 精度 < 15m 时跳过此规则。
+3. 精度 >= 15m 时，若窗口内所有采样精度完全相同，判无效，`invalidReasons` 含 `stagnant_accuracy`。
 
 八、附件锚点定位 JSON
 

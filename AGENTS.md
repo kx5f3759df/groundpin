@@ -127,6 +127,7 @@ Or open the run page → **Artifacts** at the bottom (90-day retention).
 - The 10-minute attachment window never survives an app restart — must reacquire a valid location fix.
 - Yellow state (recent valid anchor but current GPS invalid) allows attachments only, never final check-in.
 - Green state (current GPS valid) is the only state that generates the final evidence zip.
+- Location validity (ruleset v2): accuracy < 15m passes immediately after base checks; accuracy >= 15m requires at least one accuracy change among the last 5 samples (guards against stagnant mixed/cached fixes).
 - `sig.gpg` must be a real OpenPGP detached signature verifiable with `gpg --verify sig.gpg hashes.txt`.
 - Every attachment deletion must also delete its corresponding anchor JSON.
 - `hashes.txt` uses dictionary-sorted paths, does not include itself or `sig.gpg`, but includes `public_key.asc`.
@@ -149,7 +150,7 @@ Or open the run page → **Artifacts** at the bottom (90-day retention).
 - `src/native/NativeMedia.ts` — TypeScript bridge to camera, audio recording, video capture.
 - `src/native/NativePackage.ts` — TypeScript bridge to zip creation and system share sheet.
 - `src/utils/evidenceClock.ts` — EvidenceClock: derives attachment times from location timestamp + monotonic delta.
-- `src/utils/locationValidation.ts` — Location validity checks (accuracy, age, provider, mock detection, speed sanity).
+- `src/utils/locationValidation.ts` — Location validity checks (accuracy, age, provider, mock detection, stagnant accuracy, speed sanity).
 - `src/utils/hashesTxt.ts` — `hashes.txt` generator with SHA-256, sorted paths, strict formatting.
 - `src/storage/attachmentStore.ts` — Persistent attachment records with anchor JSON pairing.
 

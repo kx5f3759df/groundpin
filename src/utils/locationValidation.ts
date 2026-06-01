@@ -13,6 +13,8 @@
 //   6. accuracyAuthorization == 'precise'
 //   7. Age <= 30 seconds
 //   8. No impossible speed jumps (> 80 m/s)
+//   9. If accuracy >= 15m: at least one accuracy change among last 5 samples
+//      (guards against Android mixed/cached fixes reporting stale ~30m)
 //
 // Platform-specific:
 //   iOS:     simulatedBySoftware → invalid; producedByAccessory → risk only
@@ -22,6 +24,7 @@
 import type { LocationFix } from '../types';
 import {
   LOCATION_MAX_ACCURACY_METERS,
+  LOCATION_FAST_PATH_ACCURACY_METERS,
   LOCATION_MAX_AGE_MS,
   MAX_REASONABLE_SPEED_MPS,
   LOCATION_HISTORY_SIZE,
@@ -146,10 +149,29 @@ export function detectSpeedJump(
   };
 }
 
-/** Validate a new fix against recent history, adding speed-jump detection */
+/** True when at least two samples in the window report different accuracy. */
+export function hasAccuracyVariation(
+  recentFixes: LocationFix[],
+  currentFix: LocationFix,
+): boolean {
+  const window = [
+    ...recentFixes.slice(-(LOCATION_HISTORY_SIZE - 1)),
+    currentFix,
+  ];
+  if (window.length < 2) {
+    return false;
+  }
+
+  const accuracies = window.map(f => f.horizontalAccuracyMeters);
+  return accuracies.some((accuracy, index) =>
+    index > 0 && accuracy !== accuracies[index - 1],
+  );
+}
+
+/** Validate a new fix against recent history, adding stagnation + speed-jump checks */
 export function validateWithHistory(
   fix: LocationFix,
-  recentValidFixes: LocationFix[],
+  recentFixes: LocationFix[],
 ): LocationFix {
   const validated = validateLocationFix(fix);
 
@@ -157,8 +179,20 @@ export function validateWithHistory(
     return validated;
   }
 
+  if (
+    validated.horizontalAccuracyMeters >= LOCATION_FAST_PATH_ACCURACY_METERS &&
+    !hasAccuracyVariation(recentFixes, fix)
+  ) {
+    return {
+      ...validated,
+      isValid: false,
+      invalidReasons: [...validated.invalidReasons, 'stagnant_accuracy'],
+      riskFlags: [...validated.riskFlags, 'stagnant_accuracy'],
+    };
+  }
+
   // Take the last N fixes from the history for speed-jump check
-  const recentSlice = recentValidFixes
+  const recentSlice = recentFixes
     .filter(f => f.isValid)
     .slice(-LOCATION_HISTORY_SIZE);
 

@@ -125,6 +125,8 @@ export default function MainScreen({ navigation }: Props) {
         setStatusText('定位过旧，无法打卡');
       } else if (currentFix.invalidReasons.includes('non_gps_provider')) {
         setStatusText('非 GPS provider，无法打卡');
+      } else if (currentFix.invalidReasons.includes('stagnant_accuracy')) {
+        setStatusText('定位精度停滞，等待 GNSS 更新');
       } else if (currentFix.invalidReasons.includes('accuracy_too_low')) {
         setStatusText(`定位精度太差 (${currentFix.horizontalAccuracyMeters.toFixed(0)}m)，无法打卡`);
       } else {
@@ -362,8 +364,9 @@ export default function MainScreen({ navigation }: Props) {
       })),
       validation: {
         isValid: currentFix.isValid,
-        rulesetVersion: 1,
+        rulesetVersion: 2,
         maxAccuracyMeters: 100,
+        fastPathAccuracyMeters: 15,
         maxAgeMs: 30000,
         maxReasonableSpeedMps: 80,
       },

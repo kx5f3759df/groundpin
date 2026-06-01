@@ -176,8 +176,9 @@ export type LocationJson = {
   }>;
   validation: {
     isValid: boolean;
-    rulesetVersion: 1;
+    rulesetVersion: 1 | 2;
     maxAccuracyMeters: number;
+    fastPathAccuracyMeters?: number;
     maxAgeMs: number;
     maxReasonableSpeedMps: number;
   };
@@ -252,6 +253,7 @@ export interface NativePackageModule {
 
 export const LOCATION_REFRESH_INTERVAL_MS = 1_000;
 export const LOCATION_MAX_ACCURACY_METERS = 100;
+export const LOCATION_FAST_PATH_ACCURACY_METERS = 15;
 export const LOCATION_MAX_AGE_MS = 30_000;
 export const ATTACHMENT_WINDOW_MS = 10 * 60 * 1000;
 export const MAX_REASONABLE_SPEED_MPS = 80;
