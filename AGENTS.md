@@ -125,6 +125,7 @@ Or open the run page → **Artifacts** at the bottom (90-day retention).
 - No background location permission is ever requested.
 - Attachments persist across app restarts and can accumulate over days/weeks/months.
 - The 10-minute attachment window never survives an app restart — must reacquire a valid location fix.
+- Brief inactive/background (e.g. system camera) stops location polling but preserves the in-memory anchor until the 10-minute window expires.
 - Yellow state (recent valid anchor but current GPS invalid) allows attachments only, never final check-in.
 - Green state (current GPS valid) is the only state that generates the final evidence zip.
 - Location validity (ruleset v2): accuracy < 15m passes immediately after base checks; accuracy >= 15m requires at least one accuracy change among the last 5 samples (guards against stagnant mixed/cached fixes).

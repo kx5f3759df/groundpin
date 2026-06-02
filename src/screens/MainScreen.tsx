@@ -139,11 +139,33 @@ export default function MainScreen({ navigation }: Props) {
 
   // ---- Location Polling ----
 
+  const expireAnchorIfStale = useCallback(async (): Promise<boolean> => {
+    const clock = anchorClockRef.current;
+    if (!clock) {
+      return false;
+    }
+    try {
+      const monotonicMs = await NativeLocation.getCurrentMonotonicMs();
+      if (!isClockWithinWindow(clock, monotonicMs, ATTACHMENT_WINDOW_MS)) {
+        anchorClockRef.current = null;
+        return true;
+      }
+    } catch {
+      // Keep anchor if monotonic is unavailable
+    }
+    return false;
+  }, []);
+
   const pollLocation = useCallback(async () => {
     try {
+      const anchorExpired = await expireAnchorIfStale();
+
       const fix = await NativeLocation.getCurrentLocationSnapshot();
       if (!fix) {
         currentFixRef.current = null;
+        if (anchorExpired) {
+          setStatusText('最近有效定位已超过 10 分钟，等待新定位');
+        }
         setButtonState(computeButtonState(null));
         return;
       }
@@ -168,29 +190,14 @@ export default function MainScreen({ navigation }: Props) {
         }
       }
 
-      // Recalculate button state
-      const state = computeButtonState(validated);
-
-      // If yellow but anchor is too old, revert to red
-      if (state === 'yellow_attachment_only' && anchorClockRef.current) {
-        try {
-          const monotonicMs = await NativeLocation.getCurrentMonotonicMs();
-          if (!isClockWithinWindow(anchorClockRef.current, monotonicMs, ATTACHMENT_WINDOW_MS)) {
-            anchorClockRef.current = null;
-            setButtonState('red_invalid');
-            setStatusText('最近有效定位已超过 10 分钟，等待新定位');
-            return;
-          }
-        } catch {
-          // If we can't get monotonic, keep yellow as best guess
-        }
+      if (anchorExpired && !validated.isValid) {
+        setStatusText('最近有效定位已超过 10 分钟，等待新定位');
       }
-
-      setButtonState(state);
+      setButtonState(computeButtonState(validated));
     } catch {
       // Location query failed — stay at current state
     }
-  }, [computeButtonState]);
+  }, [computeButtonState, expireAnchorIfStale]);
 
   // ---- Lifecycle ----
 
@@ -209,6 +216,7 @@ export default function MainScreen({ navigation }: Props) {
         try {
           await NativeLocation.requestLocationPermission();
           await NativeLocation.startLocationUpdates(LOCATION_REFRESH_INTERVAL_MS);
+          await expireAnchorIfStale();
           // Poll immediately
           pollLocation();
           // Then every second
@@ -226,13 +234,8 @@ export default function MainScreen({ navigation }: Props) {
         try {
           await NativeLocation.stopLocationUpdates();
         } catch {
-          // Best effort
+          // Best effort — preserve anchor and recent fixes across brief inactive (e.g. camera)
         }
-        anchorClockRef.current = null;
-        recentFixesRef.current = [];
-        currentFixRef.current = null;
-        setButtonState('red_invalid');
-        setStatusText('等待有效 GNSS 定位');
       },
     });
 
@@ -247,6 +250,9 @@ export default function MainScreen({ navigation }: Props) {
     return () => {
       unsubscribe();
       clearRecordingTimers();
+      anchorClockRef.current = null;
+      recentFixesRef.current = [];
+      currentFixRef.current = null;
       lifecycle.destroy();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
